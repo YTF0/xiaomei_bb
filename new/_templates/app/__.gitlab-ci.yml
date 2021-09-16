@@ -1,0 +1,85 @@
+stages:
+  - build
+  - test
+  - deploy
+
+build:
+  stage: build
+  rules:
+    - if: '$CI_COMMIT_REF_NAME =~ /^(qa|qa2|preview|master)$/'
+      when: on_success
+    - changes:
+        - "**/*.go"
+      when: on_success
+    - when: never
+  tags:
+    - docker-xiaomei  # match docker runner that use xiaomei image.
+  script:
+    - go build
+
+test:
+  stage: test
+  rules:
+    - if: '$CI_COMMIT_REF_NAME =~ /^(qa|qa2|preview|master)$/'
+      when: on_success
+    - changes:
+        - "**/*.go"
+        - "release/img-app/config*/config.yml"
+        - "release/img-app/config*/envs/ci.yml"
+      when: on_success
+    - when: never
+  tags:
+    - docker-xiaomei  # match docker runner that use xiaomei image.
+  variables:
+#   POSTGRES_PASSWORD: pass
+  services:
+#   - name: postgres:10 # url: postgres://postgres:pass@postgres/postgres?sslmode=disable
+#   - name: redis:3.2   # url: redis://:@redis/0
+  script:
+#   - xiaomei psql create ci
+    - GOENV=ci go test ./... -p 1 -gcflags=-l -coverprofile .test.cover
+    - go tool cover -func=.test.cover | tail -n 1
+  coverage: '/total:\s+\(statements\)\s+(\d+.\d+\%)/'
+
+.deploy:
+  stage: deploy
+  environment:
+    name: $CI_COMMIT_REF_NAME
+    url: https://$CI_ENVIRONMENT_NAME-{{ .Domain }}
+  script:
+#   - xiaomei psql create $CI_ENVIRONMENT_NAME
+    - xiaomei app deploy $CI_ENVIRONMENT_NAME -Wb "docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY"
+  only:
+    refs: [ branches ]
+
+deploy-qa:
+  extends: .deploy
+  only:
+    variables: [ '$CI_COMMIT_REF_NAME =~ /^(qa|qa2)$/' ]
+  tags:
+    - shell-xiaomei-qa  # match shell runner for qa that has xiaomei command.
+
+deploy-preview:
+  extends: .deploy
+  only:
+    variables: [ '$CI_COMMIT_REF_NAME == "preview"' ]
+  tags:
+    - shell-xiaomei-production  # match shell runner for production that has xiaomei command.
+
+deploy-production:
+  extends: .deploy
+  only:
+    variables: [ '$CI_COMMIT_REF_NAME == "master"' ]
+  environment:
+    name: production
+    url: https://{{ .Domain }}
+  tags:
+    - shell-xiaomei-production  # match shell runner for production that has xiaomei command.
+  when: manual
+  allow_failure: false
+
+before_script:
+  - buildDir=$(pwd); echo $buildDir
+  - projectDir=$(go env GOPATH)/src/{{ .ModulePath }}; echo $projectDir
+  - mkdir -p $(dirname $projectDir); ln -sfT $buildDir $projectDir; cd $projectDir
+

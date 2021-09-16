@@ -1,0 +1,33 @@
+dev:
+  accessNodes: { }
+  services:
+    app:
+      image: "{{ .Registry }}{{ .ProNameUrlSafe }}/app/dev"
+      ports: [ 3001, 4001 ]
+      options: [ -v, "{{ .ProName }}-logs:/home/ubuntu/{{ .ProName }}/log" ]
+  volumesToCreate: [ "{{ .ProName }}-logs" ]
+qa:
+  accessNodes: { }
+  services:
+    app:
+      image: "{{ .Registry }}{{ .ProNameUrlSafe }}/app/qa"
+      ports: [ 3001, 4001 ]
+      options: [ -v, "{{ .ProName }}-logs:/home/ubuntu/{{ .ProName }}/log" ]
+  volumesToCreate: [ "{{ .ProName }}-logs" ]
+preview:
+  accessNodes: { }
+  services:
+    app:
+      image: "{{ .Registry }}{{ .ProNameUrlSafe }}/app/preview"
+      ports: [ 4001 ]
+      options: [ -v, "{{ .ProName }}-logs:/home/ubuntu/{{ .ProName }}/log" ]
+  volumesToCreate: [ "{{ .ProName }}-logs" ]
+production:
+  accessNodes: { }
+  services:
+    app:
+      image: "{{ .Registry }}{{ .ProNameUrlSafe }}/app/production"
+      ports: [ 3001 ]
+      options: [ -v, "{{ .ProName }}-logs:/home/ubuntu/{{ .ProName }}/log" ]
+  volumesToCreate: [ "{{ .ProName }}-logs" ]
+
